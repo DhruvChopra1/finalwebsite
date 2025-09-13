@@ -1,2 +1,0 @@
-# finalwebsite
-My portfolio
