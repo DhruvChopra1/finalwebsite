@@ -17,17 +17,13 @@ First, here is the final, working notebook, saved as a PDF. You can see the full
 
 ---
 
-### **How to Display The PDF**
-
-The `iframe` code below will display your PDF. Just make sure the file `Linear Regression.pdf` is uploaded to the `/finalwebsite/example/_posts/` directory on your web server.
-
 ```html
 <iframe 
-  src="/finalwebsite/example/_posts/Linear Regression.pdf" 
+  src="/finalwebsite/example/_posts/linear-regression.pdf" 
   width="100%" 
   height="800px" 
   style="border:2px solid #ddd; border-radius: 5px; margin-top: 20px;">
   
   Your browser does not support iframes. 
-  You can <a href="/finalwebsite/example/_posts/Linear Regression.pdf">download the PDF here</a>.
+  You can <a href="/finalwebsite/example/_posts/linear-regression.pdf">download the PDF here</a>.
 </iframe>
