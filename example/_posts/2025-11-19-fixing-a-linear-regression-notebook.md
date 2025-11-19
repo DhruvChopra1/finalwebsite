@@ -19,11 +19,11 @@ First, here is the final, working notebook, saved as a PDF. You can see the full
 
 ```html
 <iframe 
-  src="/finalwebsite/example/_posts/linear-regression.pdf" 
+  src="/finalwebsite/assets/img/linear-regression-final.pdf" 
   width="100%" 
   height="800px" 
   style="border:2px solid #ddd; border-radius: 5px; margin-top: 20px;">
   
   Your browser does not support iframes. 
-  You can <a href="/finalwebsite/example/_posts/linear-regression.pdf">download the PDF here</a>.
+  You can <a href="/finalwebsite/assets/img/linear-regression-final.pdf">download the PDF here</a>.
 </iframe>
