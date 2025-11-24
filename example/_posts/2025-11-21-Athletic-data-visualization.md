@@ -27,7 +27,7 @@ We analyzed this combined dataset to uncover the hidden relationships between ex
 
 ### **Findings**
 
-This document provides a comprehensive, in-depth analysis of the process used to fix a broken Jupyter Notebook on Linear Regression and subsequently publish it (and a "making-of" log) to a Jekyll-based GitHub Pages website. The process was divided into two distinct phases:
+This document provides a analysis of the process used to determine the correlation from given combine data of atheletes in our school.
 
 1.  **Explosive Power is King: 1:** The strongest relationships in the data were between explosive movements. Athletes with a higher vertical jump were significantly faster in both the 40-yard dash and the pro-agility test.
 2.  **Speed Translates: 2:** We found a very strong link between linear speed (the 40-yard dash) and change-of-direction speed (pro-agility). If an athlete is fast in a straight line, they are very likely to be fast in a shuttle test.
