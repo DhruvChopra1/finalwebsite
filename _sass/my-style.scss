@@ -7,7 +7,13 @@
       padding-bottom: .45rem;
     }
   }
-
+img {
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  border-radius: 8px;
+}
+.sidebar {
+  font-weight: 500;
+}
   .btn, .gumroad-button  {
     margin: 1rem 0;
   }
