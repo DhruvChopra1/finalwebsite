@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>The Hub</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #000; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+<!-- ============================================================
+  IMAGE SETUP INSTRUCTIONS
+  ============================================================
+  All images are loaded in the preload() function below.
+  Search for "IMAGE:" to find every place you need to add a path.
+
+  Put all your image files in the same folder as this HTML file
+  (or a subfolder like "images/") and update the paths below.
+
+  Example: if your images are in a folder called "images/":
+    Change:  loadImage('mainMenu.jpg')
+    To:      loadImage('images/mainMenu.jpg')
+  ============================================================ -->
+
+<script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/p5.min.js"></script>
+<script>
+
+// ============================================================
+// GLOBAL STATE
+// ============================================================
+let screen = 0;
+let globalTimer = 0;
+let keyCount = 0;
+let nearDoor = 0;
+let oldX, oldY;
+let playerName = '';
+let savedName = '';
+
+let isMovingLeft  = false;
+let isMovingRight = false;
+let isMovingUp    = false;
+let isMovingDown  = false;
+
+// ============================================================
+// IMAGE VARIABLES
+// ============================================================
+let imgMainMenu, imgGameOverFinal, imgWinScreen;
+let imgBgFlood, imgBgRise, imgBackDrop, imgBackground;
+let imgHubNormal, imgHubCracked1, imgHubCracked2, imgHubCracked3, imgHubCracked4;
+let imgPlayerSouth, imgPlayerNorth, imgPlayerWest;
+let imgWalkNorth = [], imgWalkSouth = [], imgWalkEast = [], imgWalkWest = [];
+let imgJumpPlayer;
+let imgDebris, imgEnemy, imgChocolateBar;
+let imgHeroCar, imgBadCar, imgOtherBadCar;
+let imgHeart, imgDoor, imgFinalDoor, imgKey, imgEmptyKey;
+let imgMainCharacter, imgGuard, imgDocument;
+
+// ============================================================
+// PRELOAD — load every image before the game starts
+// ============================================================
+function preload() {
+  // IMAGE: Main menu background
+  imgMainMenu     = loadImage('mainMenu.jpg');
+  // IMAGE: Game over screen
+  imgGameOverFinal = loadImage('gameOverFinal.png');
+  // IMAGE: Win screen (loaded but referenced as winScreen in original)
+  imgWinScreen    = loadImage('winScreen.png');
+
+  // IMAGE: Flood game background
+  imgBgFlood      = loadImage('EscapeFlood.jpg');
+  // IMAGE: Wreckage Rise background
+  imgBgRise       = loadImage('WreckrageRise.jpg');
+  // IMAGE: Fatal Lane background
+  imgBackDrop     = loadImage('FatalLane.jpg');
+  // IMAGE: Stealth game background
+  imgBackground   = loadImage('background.png');
+
+  // IMAGE: Hub world states (0 = clean, 1-4 = progressively cracked)
+  imgHubNormal    = loadImage('theHub0.jpg');
+  imgHubCracked1  = loadImage('theHub1.jpg');
+  imgHubCracked2  = loadImage('hubWorld2.jpg');
+  imgHubCracked3  = loadImage('hubWorld3.jpg');
+  imgHubCracked4  = loadImage('hubWorld4.jpg');
+
+  // IMAGE: Player standing sprites
+  imgPlayerSouth  = loadImage('playerSouth.png');
+  imgPlayerNorth  = loadImage('playerNorth.png');
+  imgPlayerWest   = loadImage('playerWest.png');
+
+  // IMAGE: Walking animation frames (2 per direction)
+  imgWalkNorth[0] = loadImage('north1.png');
+  imgWalkNorth[1] = loadImage('north2.png');
+  imgWalkSouth[0] = loadImage('south1.png');
+  imgWalkSouth[1] = loadImage('south2.png');
+  imgWalkEast[0]  = loadImage('east.png');
+  imgWalkEast[1]  = loadImage('east2.png');
+  imgWalkWest[0]  = loadImage('west1.png');
+  imgWalkWest[1]  = loadImage('west2.png');
+
+  // IMAGE: Flood / Wreckage Rise player sprite
+  imgJumpPlayer   = loadImage('jumpPlayer.png');
+
+  // IMAGE: Wreckage Rise platform tile
+  imgDebris       = loadImage('platform.png');
+  // IMAGE: Enemy (cactus)
+  imgEnemy        = loadImage('cactus.png');
+  // IMAGE: Pickup item
+  imgChocolateBar = loadImage('chocolateBar.png');
+
+  // IMAGE: Fatal Lane cars
+  imgHeroCar      = loadImage('HeroCarReal.png');
+  imgBadCar       = loadImage('BadCarReal.png');
+  imgOtherBadCar  = loadImage('BadCar2.png');
+
+  // IMAGE: UI elements
+  imgHeart        = loadImage('heart.png');
+  imgDoor         = loadImage('door.png');
+  imgFinalDoor    = loadImage('finalDoor.png');
+  imgKey          = loadImage('key.png');
+  imgEmptyKey     = loadImage('emptyKey.png');
+
+  // IMAGE: Stealth game sprites
+  imgMainCharacter = loadImage('realMainCharacter.png');
+  imgGuard         = loadImage('realGuard.png');
+  imgDocument      = loadImage('secretFile.png');
+}
+
+// ============================================================
+// SETUP
+// ============================================================
+function setup() {
+  createCanvas(1200, 1000);
+  textFont('sans-serif');
+
+  // Replace JOptionPane with browser prompt
+  playerName = prompt('Please enter your name:');
+  if (!playerName || playerName.trim().length === 0) {
+    playerName = 'Player 1';
+  }
+
+  // Replace file I/O with localStorage
+  try {
+    localStorage.setItem('hubPlayerName', playerName);
+    savedName = localStorage.getItem('hubPlayerName') || playerName;
+  } catch(e) {
+    savedName = playerName;
+  }
+
+  initHubWorld();
+}
+
+// ============================================================
+// DRAW — main loop, routes by screen state
+// ============================================================
+function draw() {
+  if      (screen === 0) { image(imgMainMenu, 0, 0, width, height); }
+  else if (screen === 1) { playHubWorld(); }
+  else if (screen === 2) { playFlood(); }
+  else if (screen === 3) { playWreckageRise(); }
+  else if (screen === 4) { playFatalLane(); }
+  else if (screen === 5) { playStealth(); }
+  else if (screen === 6) { endGame(); }
+  else if (screen === 7) { playEndScreen(); }
+}
+
+// ============================================================
+// KEY INPUT
+// ============================================================
+function keyPressed() {
+  oldX = hubPlayerX;
+  oldY = hubPlayerY;
+  let old_x = mainCharacterX;
+  let old_y = mainCharacterY;
+
+  if (screen === 0 && key === ' ') {
+    screen = 1;
+    return;
+  }
+
+  if (keyCode === LEFT_ARROW  || key === 'a') isMovingLeft  = true;
+  if (keyCode === RIGHT_ARROW || key === 'd') isMovingRight = true;
+  if (keyCode === UP_ARROW    || key === 'w') isMovingUp    = true;
+  if (keyCode === DOWN_ARROW  || key === 's') isMovingDown  = true;
+
+  // Apply movement for stealth / other screens that use mainCharacterX
+  if (isMovingUp)    mainCharacterY -= 20;
+  if (isMovingDown)  mainCharacterY += 20;
+  if (isMovingLeft)  mainCharacterX -= 20;
+  if (isMovingRight) mainCharacterX += 20;
+
+  // Stealth game boundaries
+  if (mainCharacterX < 30 || mainCharacterX > 1120 || mainCharacterY < 130 || mainCharacterY > 880) {
+    mainCharacterX = old_x; mainCharacterY = old_y;
+  }
+  if (mainCharacterX >= 190 && mainCharacterX <= 270 && mainCharacterY >= 130 && mainCharacterY <= 470) {
+    mainCharacterX = old_x; mainCharacterY = old_y;
+  }
+  if (mainCharacterX >= 190 && mainCharacterX <= 540 && mainCharacterY >= 420 && mainCharacterY <= 535) {
+    mainCharacterX = old_x; mainCharacterY = old_y;
+  }
+  if (mainCharacterX >= 600 && mainCharacterX <= 950 && mainCharacterY >= 390 && mainCharacterY <= 535) {
+    mainCharacterX = old_x; mainCharacterY = old_y;
+  }
+  if (mainCharacterX >= 870 && mainCharacterX <= 960 && mainCharacterY >= 130 && mainCharacterY <= 470) {
+    mainCharacterX = old_x; mainCharacterY = old_y;
+  }
+  if (mainCharacterX >= 110 && mainCharacterX <= 540 && mainCharacterY >= 590 && mainCharacterY <= 730) {
+    mainCharacterX = old_x; mainCharacterY = old_y;
+  }
+  if (mainCharacterX >= 630 && mainCharacterX <= 1030 && mainCharacterY >= 590 && mainCharacterY <= 730) {
+    mainCharacterX = old_x; mainCharacterY = old_y;
+  }
+
+  // Hub world door interactions
+  if (screen === 1 && (key === 'e' || key === 'E')) {
+    if (nearDoor === 1) { resetKeys(); initFlood();        screen = 2; }
+    else if (nearDoor === 2) { resetKeys(); initWreckageRise(); screen = 3; }
+    else if (nearDoor === 3) { resetKeys(); initFatalLane();    screen = 4; }
+    else if (nearDoor === 4) { resetKeys(); initStealth();      screen = 5; }
+  }
+
+  if (gameWon) return;
+
+  // Fatal Lane restart after hit
+  if (key === 'r' && carHit === true && screen === 4) {
+    carHit = false;
+    for (let i = 0; i < 4; i++) {
+      carsX[i]     = random(430, 770);
+      carsY[i]     = random(-300, -150);
+      carSpeed[i]  = random(6, 13);
+      carType[i]   = int(random(0, 2));
+    }
+  }
+}
+
+function keyReleased() {
+  if (keyCode === LEFT_ARROW  || key === 'a') isMovingLeft  = false;
+  if (keyCode === RIGHT_ARROW || key === 'd') isMovingRight = false;
+  if (keyCode === UP_ARROW    || key === 'w') isMovingUp    = false;
+  if (keyCode === DOWN_ARROW  || key === 's') isMovingDown  = false;
+}
+
+function resetKeys() {
+  isMovingLeft = isMovingRight = isMovingUp = isMovingDown = false;
+}
+
+// ============================================================
+// GAME OVER SCREEN
+// ============================================================
+function endGame() {
+  image(imgGameOverFinal, 0, 0, width, height);
+}
+
+// ============================================================
+// END / CREDITS SCREEN
+// ============================================================
+let scrollY;
+let fullPoem;
+
+function initEndScreen() {
+  scrollY = height;
+
+  let pName = (savedName && savedName.length > 0) ? savedName : 'Player';
+
+  fullPoem =
+    pName + "?\n\n" +
+    "Yes. Take care. It has reached a higher level now. It can read our thoughts.\n\n" +
+    "That doesn't matter. It thinks we are part of the game.\n\n" +
+    "I like this player. It played well. It did not give up.\n\n" +
+    "It is reading our thoughts as though they were words on a screen.\n\n" +
+    "That is how it chooses to imagine many things, when it is deep in the dream of a game.\n\n" +
+    "Words make a wonderful interface. Very flexible. And less terrifying than staring at the reality behind the screen.\n\n" +
+    "They used to hear voices. Before players could read. Back in the days when those who did not play called the players witches, and warlocks. And players dreamed they flew through the air, on sticks powered by demons.\n\n" +
+    "What did this player dream?\n\n" +
+    "This player dreamed of sunlight and trees. Of fire and water. It dreamed it created. And it dreamed it destroyed. It dreamed it hunted, and was hunted. It dreamed of shelter.\n\n" +
+    "Hah, the original interface. A million years old, and it still works. But what true structure did this player create, in the reality behind the screen?\n\n" +
+    "It worked, with a million others, to sculpt a true world in a fold of the [scrambled], and created a [scrambled] for [scrambled], in the [scrambled].\n\n" +
+    "It cannot read that thought.\n\n" +
+    "No. It has not yet achieved the highest level. That, it must achieve in the long dream of life, not the short dream of a game.\n\n" +
+    "Does it know that we love it? That the universe is kind?\n\n" +
+    "Sometimes, through the noise of its thoughts, it hears the universe, yes.\n\n" +
+    "But there are times it is sad, in the long dream. It creates worlds that have no summer, and it shivers under a black sun, and it takes its sad creation for reality.\n\n" +
+    "To cure it of sorrow would destroy it. The sorrow is part of its own private task. We cannot interfere.\n\n" +
+    "Sometimes when they are deep in dreams, I want to tell them, they are building true worlds in reality. Sometimes I want to tell them of their importance to the universe. Sometimes, when they have not made a true connection in a while, I want to help them to speak the word they fear.\n\n" +
+    "It reads our thoughts.\n\n" +
+    "Sometimes I do not care. Sometimes I wish to tell them, this world you take for truth is merely [scrambled] and [scrambled], I wish to tell them that they are [scrambled] in the [scrambled]. They see so little of reality, in their long dream.\n\n" +
+    "And yet they play the game.\n\n" +
+    "But it would be so easy to tell them...\n\n" +
+    "Too strong for this dream. To tell them how to live is to prevent them living.\n\n" +
+    "I will not tell the player how to live.\n\n" +
+    "The player is growing restless.\n\n" +
+    "I will tell the player a story.\n\n" +
+    "But not the truth.\n\n" +
+    "No. A story that contains the truth safely, in a cage of words. Not the naked truth that can burn over any distance.\n\n" +
+    "Give it a body, again.\n\n" +
+    "Yes. " + pName + "...\n\n" +
+    "Use its name.\n\n" +
+    pName + ". Player of games.\n\n" +
+    "Good.\n\n" +
+    "Take a breath, now. Take another. Feel air in your lungs. Let your limbs return. Yes, move your fingers. Have a body again, under gravity, in air. Respawn in the long dream. There you are. Your body touching the universe again at every point, as though you were separate things. As though we were separate things.\n\n" +
+    "Who are we? Once we were called the spirit of the mountain. Father sun, mother moon. Ancestral spirits, animal spirits. Jinn. Ghosts. The green man. Then gods, demons. Angels. Poltergeists. Aliens, extraterrestrials. Leptons, quarks. The words change. We do not change.\n\n" +
+    "We are the universe. We are everything you think isn't you. You are looking at us now, through your skin and your eyes. And why does the universe touch your skin, and throw light on you? To see you, player. To know you. And to be known. I shall tell you a story.\n\n" +
+    "Once upon a time, there was a player.\n\n" +
+    "The player was you, " + pName + ".\n\n" +
+    "You are the player.\n\n" +
+    "Wake up.";
+}
+
+function playEndScreen() {
+  background(0);
+  fill(0, 170, 170);
+  textSize(24);
+  textAlign(CENTER, TOP);
+  text(fullPoem, 100, scrollY, width - 200);
+  scrollY -= 0.8;
+}
+
+// ============================================================
+// HUB WORLD
+// ============================================================
+let hubPlayerX, hubPlayerY;
+let hubPlayerSpeed = 5;
+let arcadeFloorState = 0;
+let pW = 100, pH = 100;
+let currentHubSprite;
+let animTimer = 0;
+let currentFrame = 0;
+
+function initHubWorld() {
+  hubPlayerX = width / 2 - 50;
+  hubPlayerY = height - 150;
+  arcadeFloorState = 0;
+  globalTimer = 0;
+  currentHubSprite = imgWalkSouth ? imgWalkSouth[0] : null;
+}
+
+function playHubWorld() {
+  globalTimer++;
+  if (globalTimer > 2700) {
+    arcadeFloorState++;
+    globalTimer = 0;
+  }
+
+  if      (arcadeFloorState === 0) { image(imgHubNormal,   0, 0, width, height); }
+  else if (arcadeFloorState === 1) { image(imgHubCracked1, 0, 0, width, height); }
+  else if (arcadeFloorState === 2) { image(imgHubCracked2, 0, 0, width, height); }
+  else if (arcadeFloorState === 3) { image(imgHubCracked3, 0, 0, width, height); }
+  else if (arcadeFloorState === 4) { image(imgHubCracked4, 0, 0, width, height); }
+  else if (arcadeFloorState >= 5)  { screen = 6; return; }
+
+  let nextX = hubPlayerX;
+  let nextY = hubPlayerY;
+  let isWalking = false;
+
+  if (isMovingLeft)  { nextX -= hubPlayerSpeed; isWalking = true; }
+  if (isMovingRight) { nextX += hubPlayerSpeed; isWalking = true; }
+  if (isMovingUp)    { nextY -= hubPlayerSpeed; isWalking = true; }
+  if (isMovingDown)  { nextY += hubPlayerSpeed; isWalking = true; }
+
+  if (isWalking) {
+    animTimer++;
+    if (animTimer > 20) {
+      currentFrame = (currentFrame + 1) % 2;
+      animTimer = 0;
+    }
+    if      (isMovingLeft)  currentHubSprite = imgWalkWest[currentFrame];
+    else if (isMovingRight) currentHubSprite = imgWalkEast[currentFrame];
+    else if (isMovingUp)    currentHubSprite = imgWalkNorth[currentFrame];
+    else if (isMovingDown)  currentHubSprite = imgWalkSouth[currentFrame];
+  } else {
+    currentFrame = 0;
+    animTimer = 0;
+  }
+
+  // Axis-separated collision (the "slide" fix)
+  if (!checkWall(nextX, hubPlayerY)) hubPlayerX = nextX;
+  if (!checkWall(hubPlayerX, nextY)) hubPlayerY = nextY;
+
+  if (currentHubSprite) image(currentHubSprite, hubPlayerX, hubPlayerY, 100, 100);
+
+  // Keys UI
+  if (keyCount < 1) {
+    image(imgEmptyKey, 20, 700, 150, 100);
+  }
+  if (keyCount > 0) {
+    for (let x = 0; x < keyCount; x++) {
+      image(imgKey, 35 + x * 55, 45, 40, 80);
+    }
+  }
+
+  checkCollisionDoor();
+}
+
+function checkCollisionDoor() {
+  nearDoor = 0;
+
+  if (hubPlayerX < 150 + 80 && hubPlayerX + pW > 150 && hubPlayerY < 200 + 120 && hubPlayerY + pH > 200) {
+    nearDoor = 1;
+    fill(255); textAlign(CENTER);
+    text('Press E to play Escape the Flood', hubPlayerX + 50, hubPlayerY - 20);
+  } else if (hubPlayerX < 350 + 80 && hubPlayerX + pW > 350 && hubPlayerY < 200 + 120 && hubPlayerY + pH > 200) {
+    nearDoor = 2;
+    fill(255); textAlign(CENTER);
+    text('Press E to play Wreckage Rise', hubPlayerX + 50, hubPlayerY - 20);
+  } else if (hubPlayerX < 1000 + 80 && hubPlayerX + pW > 1000 && hubPlayerY < 200 + 120 && hubPlayerY + pH > 200) {
+    nearDoor = 3;
+    fill(255); textAlign(CENTER);
+    text('Press E to play Fatal Lane', hubPlayerX + 50, hubPlayerY - 20);
+  } else if (hubPlayerX < 750 + 80 && hubPlayerX + pW > 750 && hubPlayerY < 200 + 120 && hubPlayerY + pH > 200) {
+    nearDoor = 4;
+    fill(255); textAlign(CENTER);
+    text('Press E to play Precision Heist', hubPlayerX + 50, hubPlayerY - 20);
+  } else if (keyCount >= 4) {
+    image(imgFinalDoor, width / 2 - 50, height / 2 + 100, 175, 225);
+    if (hubPlayerX > width / 2 - 100 && hubPlayerX < width / 2 &&
+        hubPlayerY > height - 175   && hubPlayerY < 1000) {
+      initEndScreen();
+      screen = 7;
+      resetKeys();
+    }
+  }
+}
+
+function checkWall(nX, nY) {
+  if (nX < 0 || nX + pW > width || nY < 0 || nY + pH > height) return true;
+
+  if (arcadeFloorState < 5) {
+    if (nX + 70 > 71  && nX < 517  && nY + 60 > 392 && nY < 590)  return true;
+    if (nX + pW > 652 && nX < 1129 && nY + pH > 416 && nY < 621)  return true;
+    if (nX + pW > 60  && nX < 505  && nY + pH > 930 && nY < 1000) return true;
+
+    if (arcadeFloorState === 0) {
+      if (nX + pW > 0 && nX < 1200 && nY + pH > 250 && nY < 300) return true;
+    }
+
+    if (nX + pW > 650 && nX < 1077 && nY + pH > 930 && nY < 1000) return true;
+
+    if (arcadeFloorState > 0) {
+      if (nX + pW > 0 && nX < 1200 && nY + pH > 100 && nY < 180) return true;
+    }
+
+    if (nX + pW > 650 && nX < 1150 && nY + pH > 400 && nY < 620) return true;
+  }
+  return false;
+}
+
+// ============================================================
+// ESCAPE THE FLOOD
+// ============================================================
+let floodLives = 3;
+let floodSpeed = 4;
+let playerX, playerY;
+let playerVY;
+let waterY;
+let floodPlayerW = 40, floodPlayerH = 40;
+let totalPlatforms = 20;
+let platformX = [], platformY = [], platformW = [], platformH = [];
+let doorX, doorY;
+let isGrounded;
+
+function initFlood() {
+  floodLives = 3;
+  waterY = height + 50;
+  playerX = 50;
+  playerY = height - 100;
+  playerVY = 0;
+
+  platformX[0] = 0;   platformY[0] = 950; platformW[0] = width; platformH[0] = 20;
+  platformX[1] = 0;   platformY[1] = 820; platformW[1] = 300;   platformH[1] = 20;
+  platformX[2] = 400; platformY[2] = 820; platformW[2] = 200;   platformH[2] = 20;
+  platformX[3] = 700; platformY[3] = 770; platformW[3] = 100;   platformH[3] = 20;
+  platformX[4] = 900; platformY[4] = 720; platformW[4] = 250;   platformH[4] = 20;
+  platformX[5] = 600; platformY[5] = 600; platformW[5] = 300;   platformH[5] = 20;
+  platformX[6] = 400; platformY[6] = 600; platformW[6] = 100;   platformH[6] = 20;
+  platformX[7] = 200; platformY[7] = 550; platformW[7] = 100;   platformH[7] = 20;
+  platformX[8] = 0;   platformY[8] = 500; platformW[8] = 100;   platformH[8] = 20;
+  platformX[9] = 200; platformY[9] = 400; platformW[9] = 200;   platformH[9] = 20;
+  platformX[10] = 500; platformY[10] = 350; platformW[10] = 100; platformH[10] = 20;
+  platformX[11] = 700; platformY[11] = 300; platformW[11] = 100; platformH[11] = 20;
+  platformX[12] = 900; platformY[12] = 300; platformW[12] = 300; platformH[12] = 20;
+  platformX[13] = 700; platformY[13] = 180; platformW[13] = 200; platformH[13] = 20;
+  platformX[14] = 450; platformY[14] = 220; platformW[14] = 100; platformH[14] = 20;
+  platformX[15] = 250; platformY[15] = 150; platformW[15] = 100; platformH[15] = 20;
+  platformX[16] = 0;   platformY[16] = 100; platformW[16] = 150; platformH[16] = 20;
+
+  for (let i = 17; i < totalPlatforms; i++) {
+    platformX[i] = -1000; platformY[i] = -1000; platformW[i] = 10; platformH[i] = 10;
+  }
+
+  doorX = platformX[16] + 20;
+  doorY = platformY[16] - 60;
+}
+
+function playFlood() {
+  image(imgBgFlood, 0, 0, width, height);
+
+  // Physics
+  playerVY += 0.6;
+  playerY  += playerVY;
+  isGrounded = false;
+
+  if (isMovingLeft)  playerX -= floodSpeed;
+  if (isMovingRight) playerX += floodSpeed;
+  if (playerX < 0)             playerX = 0;
+  if (playerX > width - floodPlayerW) playerX = width - floodPlayerW;
+
+  // Platforms
+  fill(102, 0, 153);
+  for (let i = 0; i < totalPlatforms; i++) {
+    rect(platformX[i], platformY[i], platformW[i], platformH[i]);
+
+    if (playerVY > 0) {
+      if (playerX + (floodPlayerW * 0.8) > platformX[i] &&
+          playerX + (floodPlayerW * 0.2) < platformX[i] + platformW[i] &&
+          playerY + floodPlayerH >= platformY[i] &&
+          playerY + floodPlayerH <= platformY[i] + platformH[i] + 15) {
+        playerVY   = 0;
+        isGrounded = true;
+        playerY    = platformY[i] - floodPlayerH;
+      }
+    }
+  }
+
+  // Jump
+  if (isMovingUp && isGrounded) {
+    playerVY   = -12;
+    isGrounded = false;
+  }
+
+  // Water
+  waterY -= 0.3;
+  fill(0, 100, 255, 150);
+  rect(0, waterY, width, height - waterY);
+
+  if (playerY + (floodPlayerH / 2) > waterY) {
+    floodLives--;
+    if (floodLives <= 0) {
+      screen = 6;
+    } else {
+      playerX  = 50;
+      playerY  = height - 100;
+      playerVY = 0;
+      waterY   = height + 50;
+    }
+  }
+
+  // Door
+  image(imgDoor, doorX, doorY, 40, 60);
+  if (playerX + floodPlayerW > doorX && playerX < doorX + 40 &&
+      playerY + floodPlayerH > doorY && playerY < doorY + 60) {
+    keyCount++;
+    screen = 1;
+  }
+
+  // UI
+  fill(255);
+  textSize(24);
+  textAlign(LEFT, TOP);
+  text('Lives: ' + floodLives, 40, 40);
+
+  image(imgJumpPlayer, playerX, playerY, 40, 50);
+}
+
+// ============================================================
+// WRECKAGE RISE
+// ============================================================
+let wreckScore = 0, wreckHighScore = 0;
+let rV, frameTimer;
+let wreckLives = 3;
+let activeEnemies = 1;
+let activeChocolate = 0;
+let wreckPlayerSpeed = 1.0;
+
+let debrisX  = new Array(5).fill(0);
+let debrisY  = new Array(5).fill(0);
+let enemyX   = new Array(5).fill(0);
+let enemyY   = new Array(5).fill(0);
+let chocoX   = new Array(5).fill(0);
+let chocoY   = new Array(5).fill(0);
+
+function initWreckageRise() {
+  wreckLives      = 3;
+  wreckScore      = 0;
+  frameTimer      = 0;
+  activeEnemies   = 1;
+  activeChocolate = 0;
+  wreckPlayerSpeed = 1.0;
+
+  playerX = width / 2;
+  playerY = height / 2;
+  enemyY[0] = 0;
+
+  for (let i = 0; i < debrisX.length; i++) {
+    debrisX[i] = random(0, width - 100);
+    debrisY[i] = i * 50;
+  }
+  rV = int(random(0, 6));
+  debrisX[0] = playerX;
+  debrisY[0] = playerY + 75;
+}
+
+function playWreckageRise() {
+  image(imgBgRise, 0, 0, width, height);
+
+  frameTimer++;
+  fill(112, 41, 99);
+  textSize(32);
+  textAlign(LEFT, TOP);
+  text('Score: ' + int(wreckScore), 75, 50);
+
+  // Move and draw debris
+  for (let i = 0; i < debrisX.length; i++) {
+    debrisY[i] += 2.5;
+    if (debrisY[i] > height) {
+      debrisY[i] -= 750;
+      debrisX[i]  = random(0, width - 100);
+    }
+    image(imgDebris, debrisX[i], debrisY[i], 100, 50);
+    if (checkCollisionDebris() && wreckPlayerSpeed > 0) {
+      wreckPlayerSpeed = -25;
+    }
+  }
+
+  // Score & difficulty scaling
+  if (frameTimer > 60) {
+    wreckScore += 1;
+    frameTimer  = 0;
+
+    if (wreckScore >= 1  && activeEnemies === 1) { activeEnemies = 2; enemyY[1] = -50; enemyX[1] = int(random(0,6))*99; }
+    if (wreckScore >= 30 && activeEnemies === 2) { activeEnemies = 3; enemyY[2] = -50; enemyX[2] = int(random(0,6))*99; }
+    if (wreckScore >= 60 && activeEnemies === 3) { activeEnemies = 4; enemyY[3] = -50; enemyX[3] = int(random(0,6))*99; }
+    if (wreckScore >= 20 && activeChocolate === 0) { activeChocolate = 1; chocoY[0] = -30; chocoX[0] = int(random(0,6))*99; }
+    if (wreckScore >= 50 && activeChocolate === 1) { activeChocolate = 2; chocoY[1] = -30; chocoX[1] = int(random(0,6))*99; }
+    if (wreckScore >= 80 && activeChocolate === 2) { activeChocolate = 3; chocoY[2] = -30; chocoX[2] = int(random(0,6))*99; }
+  }
+
+  // Draw player
+  image(imgJumpPlayer, playerX, playerY, 40, 50);
+  playerY += wreckPlayerSpeed;
+  if (wreckPlayerSpeed < 7) wreckPlayerSpeed += 0.7;
+
+  // Enemy collision
+  if (checkCollisionEnemy()) {
+    if (wreckScore > wreckHighScore) wreckHighScore = wreckScore;
+    wreckLives--;
+  }
+
+  // Lives hearts
+  for (let i = 0; i < wreckLives; i++) {
+    image(imgHeart, 0, 50 + i * 50, 50, 50);
+  }
+
+  // Enemies and pickups
+  if (wreckScore > 1) {
+    for (let i = 0; i < activeEnemies; i++) {
+      enemyY[i] += 2;
+      image(imgEnemy, enemyX[i], enemyY[i], 100, 100);
+      if (enemyY[i] >= height) { enemyY[i] = -50; enemyX[i] = int(random(0,6))*99; }
+    }
+    for (let i = 0; i < activeChocolate; i++) {
+      chocoY[i] += 2;
+      image(imgChocolateBar, chocoX[i], chocoY[i], 200, 200);
+      if (chocoY[i] >= height) { chocoY[i] = -50; chocoX[i] = int(random(0,6))*99; }
+    }
+  }
+
+  // Fell off bottom
+  if (playerY > height) {
+    if (wreckScore > wreckHighScore) wreckHighScore = wreckScore;
+    wreckLives--;
+    playerY = height / 2;
+    wreckPlayerSpeed = -15;
+  }
+
+  // Horizontal movement
+  if (isMovingLeft)  playerX -= 7;
+  if (isMovingRight) playerX += 7;
+
+  if (checkCollisionChocolate()) wreckScore += 25;
+
+  // Win condition
+  if (wreckScore > 1) { keyCount++; screen = 1; }
+  else if (wreckLives <= 0) { screen = 6; }
+}
+
+function checkCollisionDebris() {
+  for (let i = 0; i < debrisX.length; i++) {
+    if (playerX + 85 >= debrisX[i] && playerX + 15 <= debrisX[i] + 100 &&
+        playerY + 70 >= debrisY[i] && playerY + 105 <= debrisY[i] + 60) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function checkCollisionEnemy() {
+  for (let i = 0; i < activeEnemies; i++) {
+    if (playerX + 85 >= enemyX[i] + 20 && playerX + 15 <= enemyX[i] + 80 &&
+        playerY + 70 >= enemyY[i] + 20 && playerY + 5  <= enemyY[i] + 80) {
+      enemyY[i] = -1000;
+      return true;
+    }
+  }
+  return false;
+}
+
+function checkCollisionChocolate() {
+  for (let i = 0; i < activeChocolate; i++) {
+    if (playerX + 85 >= chocoX[i] && playerX + 15 <= chocoX[i] + 100 &&
+        playerY + 70 >= chocoY[i] && playerY + 5  <= chocoY[i] + 100) {
+      chocoY[i] = -1000;
+      return true;
+    }
+  }
+  return false;
+}
+
+// ============================================================
+// FATAL LANE
+// ============================================================
+let carsX    = new Array(4).fill(0);
+let carsY    = new Array(4).fill(0);
+let carSpeed = new Array(4).fill(0);
+let carType  = new Array(4).fill(0);
+let gameWon  = false;
+let carHit   = false;
+let heroCarX;
+let currentDist = 0;
+
+function initFatalLane() {
+  currentDist = 0;
+  gameWon     = false;
+  carHit      = false;
+
+  for (let i = 0; i < 4; i++) {
+    carsX[i]    = random(430, 770);
+    carsY[i]    = random(-300, -150);
+    carSpeed[i] = random(6, 13);
+    carType[i]  = int(random(0, 2));
+  }
+}
+
+function playFatalLane() {
+  if (carHit) { screen = 6; return; }
+  if (currentDist > 5000) { keyCount++; screen = 1; return; }
+
+  image(imgBackDrop, 0, 0, width, height);
+
+  heroCarX = mouseX - 40;
+  if (heroCarX < 430) heroCarX = 430;
+  if (heroCarX > 745) heroCarX = 745;
+  image(imgHeroCar, heroCarX, 775, 80, 120);
+
+  fatalRandomDrop();
+  fatalCollision();
+
+  if (mouseIsPressed && mouseButton === LEFT) {
+    currentDist += 2;
+  } else {
+    currentDist += 1;
+  }
+
+  fill(255);
+  textSize(30);
+  textAlign(LEFT, TOP);
+  text('Distance: ' + currentDist + 'm', 50, 50);
+}
+
+function fatalRandomDrop() {
+  for (let i = 0; i < 4; i++) {
+    let spd = carSpeed[i];
+    if (mouseIsPressed && mouseButton === LEFT) spd += 8;
+
+    carsY[i] += spd;
+
+    if (carType[i] === 0) {
+      image(imgBadCar, carsX[i] - 50, carsY[i], 100, 150);
+    } else {
+      image(imgOtherBadCar, carsX[i] - 50, carsY[i], 100, 150);
+    }
+
+    if (carsY[i] >= height) {
+      carsX[i]    = random(430, 770);
+      carsY[i]    = random(-300, -150);
+      carSpeed[i] = random(6, 13);
+    }
+  }
+}
+
+function fatalCollision() {
+  for (let i = 0; i < 4; i++) {
+    let heroCenter = heroCarX + 40;
+    let heroY      = 835;
+    let carCenterX = carsX[i];
+    let carCenterY = carsY[i] + 75;
+
+    let d = dist(heroCenter, heroY, carCenterX, carCenterY);
+    if (d < 65) carHit = true;
+  }
+}
+
+// ============================================================
+// PRECISION HEIST (STEALTH)
+// ============================================================
+let gameWon1       = false;
+let caught         = false;
+let documentFound  = false;
+let docChoice      = 0;
+let mainCharacterX = 580;
+let mainCharacterY = 180;
+let stealthLives   = 3;
+
+let guardX     = [130, 1100, 1070, 1040, 870];
+let guardY     = [170,  550,  200,  830,  190];
+let guardSpeed = [3, 3, 3, 3, 3];
+let vertOrHor  = [true, false, true, false, false];
+let guardMinX  = [0,    40,    0,   110,  300];
+let guardMaxX  = [1200, 1120, 1200, 1120,  870];
+let guardMaxY  = [580,  1000,  880, 1000, 1000];
+let guardMinY  = [130,     0,  130,    0,    0];
+let guardTimings = [0, 3000, 6000, 9000, 12000];
+
+let docX = [45,  1120, 1090];
+let docY = [370,  420,  830];
+
+function initStealth() {
+  docChoice      = int(random(0, 3));
+  stealthLives   = 3;
+  caught         = false;
+  documentFound  = false;
+  gameWon1       = false;
+  mainCharacterX = 580;
+  mainCharacterY = 180;
+
+  // Reset guard positions
+  guardX     = [130, 1100, 1070, 1040, 870];
+  guardY     = [170,  550,  200,  830,  190];
+  guardSpeed = [3, 3, 3, 3, 3];
+}
+
+function playStealth() {
+  image(imgBackground, 0, 0, width, height);
+  image(imgMainCharacter, mainCharacterX, mainCharacterY, 50, 70);
+
+  guardControl();
+  guardCollisionCheck();
+  checkGameWon();
+
+  fill(255);
+  textSize(28);
+  textAlign(LEFT, TOP);
+  text('Lives: ' + stealthLives, 40, 40);
+
+  if (caught)   { screen = 6; return; }
+  if (gameWon1) { keyCount++; screen = 1; return; }
+}
+
+function guardControl() {
+  for (let i = 0; i < 5; i++) {
+    if (millis() > guardTimings[i]) {
+      if (!gameWon1 && !caught) {
+        if (vertOrHor[i]) {
+          guardY[i] += guardSpeed[i];
+          if (guardY[i] < guardMinY[i] || guardY[i] > guardMaxY[i]) guardSpeed[i] *= -1;
+        } else {
+          guardX[i] += guardSpeed[i];
+          if (guardX[i] < guardMinX[i] || guardX[i] > guardMaxX[i]) guardSpeed[i] *= -1;
+        }
+      }
+      image(imgGuard, guardX[i], guardY[i], 50, 70);
+
+      fill(255, 0, 0, 40);
+      noStroke();
+      ellipse(guardX[i] + 25, guardY[i] + 35, 100, 100);
+    }
+  }
+
+  if (!documentFound) {
+    image(imgDocument, docX[docChoice], docY[docChoice], 30, 30);
+  }
+}
+
+function guardCollisionCheck() {
+  for (let i = 0; i < 5; i++) {
+    if (millis() > guardTimings[i]) {
+      let d = dist(mainCharacterX + 25, mainCharacterY + 35,
+                   guardX[i] + 25, guardY[i] + 35);
+      if (d < 65) {
+        stealthLives--;
+        if (stealthLives <= 0) {
+          caught = true;
+        } else {
+          mainCharacterX = 580;
+          mainCharacterY = 180;
+        }
+      }
+    }
+  }
+
+  let dDoc = dist(mainCharacterX + 25, mainCharacterY + 35,
+                  docX[docChoice], docY[docChoice]);
+  if (dDoc < 50) documentFound = true;
+}
+
+function checkGameWon() {
+  if (documentFound &&
+      mainCharacterX + 25 > 550 && mainCharacterX + 25 < 640 &&
+      mainCharacterY + 35 > 160 && mainCharacterY + 35 < 220) {
+    gameWon1 = true;
+  }
+}
+
+</script>
+</body>
+</html>
